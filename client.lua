@@ -1,47 +1,32 @@
---[[
-    Client-side Script for Population Density Management
-    Author: Nesox (AI Generated)
-    Description: Applies density multipliers based on GlobalState. Optimized for 0.00ms idle.
-]]
-
--- Function to get current density or default
 local function getDensity()
-    return GlobalState.Density or { traffic = 1.0, peds = 1.0 }
+    return GlobalState.Density or Config.DefaultDensity
 end
 
 local currentDensity = getDensity()
 
--- Listen for changes in GlobalState
 AddStateBagChangeHandler('Density', 'global', function(bagName, key, value, _unused, replicated)
     if value then
         currentDensity = value
-        -- Optional: Debug print
-        -- print(string.format('New Density Received: Traffic: %.2f, Peds: %.2f', currentDensity.traffic, currentDensity.peds))
     end
 end)
 
--- Main Thread
 CreateThread(function()
     while true do
-        local sleep = 1000 -- Default to 1 second wait (Idle optimization)
+        local sleep = 1000
 
         local traffic = currentDensity.traffic
         local peds = currentDensity.peds
 
-        -- Implementation of the requirement: 
-        -- "La boucle... ne doit s'exécuter que si les valeurs sont différentes de celles par défaut (1.0)."
-        if traffic ~= 1.0 or peds ~= 1.0 then
-            sleep = 0 -- Run every frame when non-default
+        if traffic ~= Config.DefaultDensity.traffic or peds ~= Config.DefaultDensity.peds then
+            sleep = 0
 
-            -- Apply Traffic Multipliers
-            if traffic ~= 1.0 then
+            if traffic ~= Config.DefaultDensity.traffic then
                 SetVehicleDensityMultiplierThisFrame(traffic)
                 SetRandomVehicleDensityMultiplierThisFrame(traffic)
                 SetParkedVehicleDensityMultiplierThisFrame(traffic)
             end
 
-            -- Apply Pedestrian Multipliers
-            if peds ~= 1.0 then
+            if peds ~= Config.DefaultDensity.peds then
                 SetPedDensityMultiplierThisFrame(peds)
                 SetScenarioPedDensityMultiplierThisFrame(peds)
             end
@@ -51,24 +36,19 @@ CreateThread(function()
     end
 end)
 
---[[
-    ox_lib Menu Integration
-]]
-
--- Register the Context Menu
 lib.registerContext({
     id = 'density_menu',
-    title = 'Gestion Densité Population',
+    title = _U('menu_title'),
     options = {
         {
-            title = 'Modifier la Densité',
-            description = 'Ajuster le trafic et les piétons',
+            title = _U('menu_modify'),
+            description = _U('menu_modify_desc'),
             icon = 'users',
             onSelect = function()
-                local input = lib.inputDialog('Ajuster la Densité (0.0 - 1.0)', {
+                local input = lib.inputDialog(_U('menu_adjust_dialog'), {
                     {
                         type = 'slider',
-                        label = 'Trafic (Véhicules)',
+                        label = _U('menu_traffic'),
                         default = currentDensity.traffic,
                         min = 0.0,
                         max = 1.0,
@@ -76,7 +56,7 @@ lib.registerContext({
                     },
                     {
                         type = 'slider',
-                        label = 'Piétons (PNJ)',
+                        label = _U('menu_peds'),
                         default = currentDensity.peds,
                         min = 0.0,
                         max = 1.0,
@@ -93,26 +73,23 @@ lib.registerContext({
             end,
         },
         {
-            title = 'Réinitialiser (1.0)',
-            description = 'Remettre les valeurs par défaut',
+            title = _U('menu_reset'),
+            description = _U('menu_reset_desc'),
             icon = 'rotate-right',
             onSelect = function()
-               TriggerServerEvent('nesox_trafic:updateDensity', 1.0, 1.0)
+               TriggerServerEvent('nesox_trafic:updateDensity', Config.DefaultDensity.traffic, Config.DefaultDensity.peds)
             end,
         }
     }
 })
 
--- Command to open the menu or set density directly
 RegisterCommand('setdensity', function(source, args)
     local traffic = tonumber(args[1])
     local peds = tonumber(args[2])
 
-    -- If args provided, try to update
     if traffic and peds then
         TriggerServerEvent('nesox_trafic:updateDensity', traffic, peds)
     else
-        -- No args, open menu
         lib.showContext('density_menu')
     end
 end, false)
